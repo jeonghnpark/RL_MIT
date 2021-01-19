@@ -1,7 +1,9 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-a=[1,2,3,4,5,6]
+import PyQt5
+
+a=['a','b','c','d','e','f']
 np.random.seed(42)
 selection=[]
 for i in range(10000):

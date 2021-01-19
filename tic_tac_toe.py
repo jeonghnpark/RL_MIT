@@ -101,7 +101,6 @@ def get_all_states_impl(current_state, current_symbol, all_states):
                     pass
 
 
-
 def get_all_states():
     current_state = State()
     current_symbol = 1
@@ -110,68 +109,161 @@ def get_all_states():
     get_all_states_impl(current_state, current_symbol, all_states)
     return all_states
 
-all_states=get_all_states()
+
+all_states = get_all_states()
+
+
+
 
 class Player:
-    def __init__(self,step_size=0.1,epsilon=0.1):
-        self.estimations=dict()
-        self.step_size=step_size
-        self.epsilon=epsilon
-        self.states=[]
-        self.greedy=[]
-        self.symbol=0
+    def __init__(self, step_size=0.1, epsilon=0.1):
+        self.estimations = dict()
+        self.step_size = step_size
+        self.epsilon = epsilon
+        self.states = []
+        self.greedy = []
+        self.symbol = 0
 
     def reset(self):
-        self.states=[]
-        self.greedy=[]
+        self.states = []
+        self.greedy = []
 
-    def set_state(self,state):
-        self.states.appen(state)
+    def set_state(self, state):
+        self.states.append(state)
         self.greedy.append(True)
 
-    def set_symbol(self,symbol):
-        #player의 symbol과 초기 estimation을 설정함
-        self.symbol=symbol
+    def set_symbol(self, symbol):
+        # player의 symbol과 초기 estimation을 설정함
+        self.symbol = symbol
         for hash_value in all_states:
-            state, is_end=all_states[hash_value]
+            state, is_end = all_states[hash_value]
             if is_end:
-                if state.winner==self.symbol:
-                    self.estimations[hash_value]=1.0
-                elif state.winner==0:
-                    self.estimations[hash_value]=0.5
-                else: #when lose
-                    self.estimations[hash_value]=0
+                if state.winner == self.symbol:
+                    self.estimations[hash_value] = 1.0
+                elif state.winner == 0:
+                    self.estimations[hash_value] = 0.5
+                else:  # when lose
+                    self.estimations[hash_value] = 0
             else:
-                self.estimations[hash_value]=0.5
+                self.estimations[hash_value] = 0.5
 
     def backup(self):
         pass
 
     def act(self):
-        #list all possible position and it's stata
-        state=self.states[-1]
-        next_states=[]
-        next_positions=[]
+        # list all possible position and it's stata
+        state = self.states[-1]
+        next_states = []
+        next_positions = []
         for i in range(BOARD_ROWS):
             for j in range(BOARD_COLS):
-                if self.data[i,j]==-0:
-                    next_states.append(state.next_state(i,j,self.symbol).hash())
-                    next_positions.append([i,j])
+                if state.data[i, j] == -0:
+                    next_states.append(state.next_state(i, j, self.symbol).hash())
+                    next_positions.append([i, j])
 
-        #choose position
+        # choose position
+        # exploration move
         if np.random.rand() < self.epsilon:
-            action=next_positions[np.random.randint(len(next_positions))]
+            action = next_positions[np.random.randint(len(next_positions))]
+            action.append(self.symbol)
+            self.greedy[-1]=False #default value is True
+            return action
+        #greedy move
+        values=[]
+        for hash_value, pos in zip(next_states, next_positions):
+            values.append((self.estimations[hash_value],pos))
 
-def train(epochs,print_every_n=500):
-    pass
+        # select one of the maximum value randomly
+        np.random.shuffle(values)
+        values.sort(key=lambda x:x[0], reverse=True)
+        action=values[0][1] #postion of max value
+        action.append(self.symbol)
+        return action
+
+    def save_policy(self):
+        with open(f'policy_{"first" if self.symbol==1 else "second"}.bin', 'wb') as f:
+            pickle.dump(self.estimations,f)
+
+    def load_policy(self):
+        with open(f'policy_{"first" if self.symbol==1 else "second"}.bin', 'rb') as f:
+            self.estimations=pickle.load(f)
+
+
+class Judger():
+    def __init__(self,player1, player2):
+        self.p1=player1
+        self.p2=player2
+        self.current_player=None
+        self.p1_symbol=1
+        self.p2_symbol=-1
+        self.p1.set_symbol(self.p1_symbol)
+        self.p2.set_symbol(self.p2_symbol)
+        self.current_state=State()
+
+    def reset(self):
+        self.p1.reset()  #self.states=[], self.greedy=[]
+        self.p2.reset()
+
+    def alternate(self):
+        while True:
+            yield self.p1
+            yield self.p2
+
+    def play(self,print_state=False):
+        #initialization of play
+        alternator=self.alternate()
+        self.reset()
+        current_state=State()
+        self.p1.set_state(current_state)
+        self.p2.set_state(current_state)
+        if print_state:
+            current_state.print_state()
+        #play until end, return State.winner
+        while True:
+            player=next(alternator)
+
+
+
+# human interface qweasdzxc => 012345678
+class HumanPlayer:
+    def __init__(self, **kwargs):
+        self.symbol=None
+        self.keys=['q','w','e','a','s','d','z','x','c']
+        self.state=None
+
+    def reset(self):
+        pass
+
+    def set_state(self, state):
+        self.state=state
+
+    def set_symbol(self, symbol):
+        self.symbol=symbol
+
+    def act(self):
+        self.state.print_state()
+        key=input("Input your position")
+        data=self.keys.index(key)
+        i=data // BOARD_COLS
+        j=data % BOARD_ROWS
+        return i,j,self.symbol
+
+
+def train(epochs, print_every_n=500):
+    player1=Player(epsilon=0.01)
+    player2=Player(epsilon=0.01)
+
+
 
 def compete(turns):
     pass
 
+
 def play():
     pass
 
-if __name__=="__main__":
+
+if __name__ == "__main__":
     train(int(1e5))
     compete(int(1e3))
     play()
